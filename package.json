@@ -1,0 +1,24 @@
+{
+  "name": "@incremental-code/last-server",
+  "version": "1.0.0",
+  "description": "Zero-config dev server with JSX support, built on last-router and last-act.",
+  "type": "module",
+  "bin": {
+    "last-server": "./bin/last-server.js"
+  },
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./compile": "./src/compile.js"
+  },
+  "scripts": {
+    "demo": "node bin/last-server.js demo/src",
+    "test": "node --test \"src/tests/*.test.js\""
+  },
+  "dependencies": {
+    "@incremental-code/last-act": "file:../last-act",
+    "@incremental-code/last-router": "file:../last-router",
+    "esbuild": "^0.24.0",
+    "signal-polyfill": "^0.2.2"
+  }
+}
