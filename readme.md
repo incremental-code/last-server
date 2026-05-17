@@ -32,7 +32,9 @@ export default function Profile({ params: { username }, body }) {
 
 JSX is transformed with `createElement` from last-act as the factory. Fragments (`<>...</>`) are supported via a tiny shim that returns its children.
 
-`page.js` and `api.js` files are copied through unchanged, so you can mix JS and JSX freely.
+`.ts` and `.tsx` are also supported — types are stripped, TSX gets the same JSX treatment as JSX. Imports must use the post-compile `.js` extension (e.g. `import { greet } from './api.js'` even when the source is `api.ts`).
+
+`page.js` and `api.js` files are copied through unchanged, so you can mix JS, JSX, and TS freely.
 
 ## CLI
 

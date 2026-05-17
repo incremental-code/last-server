@@ -3,9 +3,15 @@ import { existsSync } from 'node:fs';
 import { dirname, extname, join, relative, sep } from 'node:path';
 import { transform } from 'esbuild';
 
-const JSX_EXTENSIONS = new Set(['.jsx']);
+const LOADERS = {
+    '.jsx': 'jsx',
+    '.ts': 'ts',
+    '.tsx': 'tsx',
+};
 
-const BANNER = `import { createElement as __createElement } from '@incremental-code/last-act';
+const JSX_LOADERS = new Set(['jsx', 'tsx']);
+
+const JSX_BANNER = `import { createElement as __createElement } from '@incremental-code/last-act';
 const __Fragment = (props) => props.children;
 `;
 
@@ -22,13 +28,14 @@ export async function compileTree(srcDir, outDir) {
 export async function compileOrCopy(srcDir, outDir, rel) {
     const srcPath = join(srcDir, rel);
     const ext = extname(rel);
+    const loader = LOADERS[ext];
 
-    if (JSX_EXTENSIONS.has(ext)) {
+    if (loader) {
         const target = join(outDir, rel.slice(0, -ext.length) + '.js');
         await mkdir(dirname(target), { recursive: true });
         const source = await readFile(srcPath, 'utf8');
         const result = await transform(source, {
-            loader: 'jsx',
+            loader,
             jsx: 'transform',
             jsxFactory: '__createElement',
             jsxFragment: '__Fragment',
@@ -36,7 +43,8 @@ export async function compileOrCopy(srcDir, outDir, rel) {
             sourcemap: 'inline',
             format: 'esm',
         });
-        await writeFile(target, BANNER + result.code);
+        const prefix = JSX_LOADERS.has(loader) ? JSX_BANNER : '';
+        await writeFile(target, prefix + result.code);
         return target;
     }
 
@@ -48,7 +56,7 @@ export async function compileOrCopy(srcDir, outDir, rel) {
 
 export async function removeCompiled(srcDir, outDir, rel) {
     const ext = extname(rel);
-    const outName = JSX_EXTENSIONS.has(ext)
+    const outName = LOADERS[ext]
         ? rel.slice(0, -ext.length) + '.js'
         : rel;
     const target = join(outDir, outName);
