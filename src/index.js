@@ -1,5 +1,5 @@
-import { existsSync, watch as fsWatch } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, watch as fsWatch } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { createServer } from '@incremental-code/last-router/server';
 import { compileOrCopy, compileTree, removeCompiled } from './compile.js';
 
@@ -40,7 +40,8 @@ export async function startServer({ srcDir, outDir, port = 3000, watch = true } 
     console.log(`last-server: compiling ${srcDir} -> ${outDir}`);
     await compileTree(srcDir, outDir);
 
-    const server = createServer({ port, base: outDir });
+    const imports = resolveUserImports(process.cwd(), outDir);
+    const server = createServer({ port, base: outDir, imports });
     const { url } = await server.connect();
     console.log(`last-server: listening on ${url}`);
 
@@ -50,6 +51,63 @@ export async function startServer({ srcDir, outDir, port = 3000, watch = true } 
     }
 
     return server;
+}
+
+function resolveUserImports(cwd, baseDir) {
+    const pkgPath = findNearestPackageJson(cwd);
+    if (!pkgPath) return {};
+
+    let pkg;
+    try {
+        pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    } catch {
+        return {};
+    }
+
+    const deps = { ...(pkg.dependencies || {}), ...(pkg.peerDependencies || {}) };
+    const nodeModules = findNodeModules(baseDir) || findNodeModules(dirname(pkgPath));
+    if (!nodeModules) return {};
+
+    const imports = {};
+    for (const name of Object.keys(deps)) {
+        const entry = resolvePackageEntry(nodeModules, name);
+        if (entry) imports[name] = `/__module/${name}/${entry}`;
+    }
+    return imports;
+}
+
+function resolvePackageEntry(nodeModules, name) {
+    const pkgPath = join(nodeModules, name, 'package.json');
+    if (!existsSync(pkgPath)) return null;
+    try {
+        const meta = JSON.parse(readFileSync(pkgPath, 'utf8'));
+        const entry = meta.module || meta.main || 'index.js';
+        return entry.replace(/^\.?\//, '');
+    } catch {
+        return null;
+    }
+}
+
+function findNearestPackageJson(start) {
+    let dir = start;
+    while (true) {
+        const candidate = join(dir, 'package.json');
+        if (existsSync(candidate)) return candidate;
+        const parent = dirname(dir);
+        if (parent === dir) return null;
+        dir = parent;
+    }
+}
+
+function findNodeModules(start) {
+    let dir = start;
+    while (true) {
+        const candidate = join(dir, 'node_modules');
+        if (existsSync(candidate)) return candidate;
+        const parent = dirname(dir);
+        if (parent === dir) return null;
+        dir = parent;
+    }
 }
 
 function startWatch(srcDir, outDir) {
