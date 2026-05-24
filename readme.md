@@ -65,3 +65,4 @@ await startServer({
 - Each saved `.jsx` recompiles in place; the browser sees the new file on reload.
 - Module-level changes to server-rendered files require a server restart (Node caches `import()` results).
 - For routes, see the [last-router readme](../last-router/readme.md) — folder names map to URL segments, `[name]` becomes `:name`.
+- `last-server` exposes a built-in `GET /health` endpoint that returns `200 OK` with body `ok`.
