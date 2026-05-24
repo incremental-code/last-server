@@ -43,7 +43,7 @@ export async function startServer({ srcDir, outDir, port = 3000, watch = true } 
     const imports = resolveUserImports(process.cwd(), outDir);
     const server = createServer({ port, base: outDir, imports });
     const { url } = await server.connect();
-    console.log(`last-server: listening on ${url}`);
+    console.log(formatListeningMessage(url));
 
     if (watch) {
         startWatch(srcDir, outDir);
@@ -51,6 +51,22 @@ export async function startServer({ srcDir, outDir, port = 3000, watch = true } 
     }
 
     return server;
+}
+
+export function formatListeningMessage(url) {
+    const port = getPortFromUrl(url);
+    return port
+        ? `last-server: listening on ${url} (port ${port})`
+        : `last-server: listening on ${url}`;
+}
+
+function getPortFromUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.port || null;
+    } catch {
+        return null;
+    }
 }
 
 function resolveUserImports(cwd, baseDir) {
