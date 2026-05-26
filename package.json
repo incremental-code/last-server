@@ -1,6 +1,6 @@
 {
   "name": "@incremental-code/last-server",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Zero-config dev server with JSX support, built on last-router and last-act.",
   "type": "module",
   "bin": {
