@@ -86,22 +86,84 @@ function resolveUserImports(cwd, baseDir) {
 
     const imports = {};
     for (const name of Object.keys(deps)) {
-        const entry = resolvePackageEntry(nodeModules, name);
-        if (entry) imports[name] = `/__module/${name}/${entry}`;
+        Object.assign(imports, resolvePackageImports(nodeModules, name));
     }
     return imports;
 }
 
-function resolvePackageEntry(nodeModules, name) {
+function resolvePackageImports(nodeModules, name) {
     const pkgPath = join(nodeModules, name, 'package.json');
-    if (!existsSync(pkgPath)) return null;
+    if (!existsSync(pkgPath)) return {};
+
     try {
         const meta = JSON.parse(readFileSync(pkgPath, 'utf8'));
-        const entry = meta.module || meta.main || 'index.js';
-        return entry.replace(/^\.?\//, '');
+        const imports = {};
+        const rootEntry = resolvePackageTarget(meta.exports?.['.']) || meta.module || meta.main || 'index.js';
+        if (rootEntry) {
+            imports[name] = `/__module/${name}/${normalizePackageEntry(rootEntry)}`;
+        }
+
+        if (meta.exports && typeof meta.exports === 'object') {
+            for (const [exportName, exportTarget] of Object.entries(meta.exports)) {
+                if (exportName === '.' || exportName === './package.json') {
+                    continue;
+                }
+
+                const entry = resolvePackageTarget(exportTarget);
+                if (!entry) {
+                    continue;
+                }
+
+                const subpath = exportName.startsWith('./') ? exportName.slice(2) : exportName;
+                if (!subpath) {
+                    continue;
+                }
+
+                imports[`${name}/${subpath}`] = `/__module/${name}/${normalizePackageEntry(entry)}`;
+            }
+        }
+
+        return imports;
     } catch {
+        return {};
+    }
+}
+
+function resolvePackageTarget(target) {
+    if (typeof target === 'string') {
+        return target;
+    }
+
+    if (Array.isArray(target)) {
+        for (const item of target) {
+            const resolved = resolvePackageTarget(item);
+            if (resolved) {
+                return resolved;
+            }
+        }
         return null;
     }
+
+    if (!target || typeof target !== 'object') {
+        return null;
+    }
+
+    for (const key of ['import', 'module', 'browser', 'default', 'require']) {
+        if (!Object.prototype.hasOwnProperty.call(target, key)) {
+            continue;
+        }
+
+        const resolved = resolvePackageTarget(target[key]);
+        if (resolved) {
+            return resolved;
+        }
+    }
+
+    return null;
+}
+
+function normalizePackageEntry(entry) {
+    return String(entry || '').replace(/^\.?\//, '');
 }
 
 function findNearestPackageJson(start) {
