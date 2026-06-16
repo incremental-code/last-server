@@ -85,47 +85,57 @@ function resolveUserImports(cwd, baseDir) {
     if (!nodeModules) return {};
 
     const imports = {};
+    const visited = new Set();
     for (const name of Object.keys(deps)) {
-        Object.assign(imports, resolvePackageImports(nodeModules, name));
+        collectPackageImports(nodeModules, name, imports, visited);
     }
     return imports;
 }
 
-function resolvePackageImports(nodeModules, name) {
+function collectPackageImports(nodeModules, name, imports, visited) {
+    if (visited.has(name)) return;
+    visited.add(name);
+
     const pkgPath = join(nodeModules, name, 'package.json');
-    if (!existsSync(pkgPath)) return {};
+    if (!existsSync(pkgPath)) return;
 
+    let meta;
     try {
-        const meta = JSON.parse(readFileSync(pkgPath, 'utf8'));
-        const imports = {};
-        const rootEntry = resolvePackageTarget(meta.exports?.['.']) || meta.module || meta.main || 'index.js';
-        if (rootEntry) {
-            imports[name] = `/__module/${name}/${normalizePackageEntry(rootEntry)}`;
-        }
-
-        if (meta.exports && typeof meta.exports === 'object') {
-            for (const [exportName, exportTarget] of Object.entries(meta.exports)) {
-                if (exportName === '.' || exportName === './package.json') {
-                    continue;
-                }
-
-                const entry = resolvePackageTarget(exportTarget);
-                if (!entry) {
-                    continue;
-                }
-
-                const subpath = exportName.startsWith('./') ? exportName.slice(2) : exportName;
-                if (!subpath) {
-                    continue;
-                }
-
-                imports[`${name}/${subpath}`] = `/__module/${name}/${normalizePackageEntry(entry)}`;
-            }
-        }
-
-        return imports;
+        meta = JSON.parse(readFileSync(pkgPath, 'utf8'));
     } catch {
-        return {};
+        return;
+    }
+
+    // Add this package's own exports to the import map
+    const rootEntry = resolvePackageTarget(meta.exports?.['.']) || meta.module || meta.main || 'index.js';
+    if (rootEntry) {
+        imports[name] = `/__module/${name}/${normalizePackageEntry(rootEntry)}`;
+    }
+
+    if (meta.exports && typeof meta.exports === 'object') {
+        for (const [exportName, exportTarget] of Object.entries(meta.exports)) {
+            if (exportName === '.' || exportName === './package.json') {
+                continue;
+            }
+
+            const entry = resolvePackageTarget(exportTarget);
+            if (!entry) {
+                continue;
+            }
+
+            const subpath = exportName.startsWith('./') ? exportName.slice(2) : exportName;
+            if (!subpath) {
+                continue;
+            }
+
+            imports[`${name}/${subpath}`] = `/__module/${name}/${normalizePackageEntry(entry)}`;
+        }
+    }
+
+    // Recurse into this package's own dependencies
+    const transitiveDeps = { ...(meta.dependencies || {}), ...(meta.peerDependencies || {}) };
+    for (const depName of Object.keys(transitiveDeps)) {
+        collectPackageImports(nodeModules, depName, imports, visited);
     }
 }
 
