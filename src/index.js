@@ -227,7 +227,7 @@ function startWatch(srcDir, outDir) {
 }
 
 function parseArgs(argv) {
-    const out = { srcDir: null, port: 3000, out: '.last-server', watch: true, help: false };
+    const out = { srcDir: null, port: Number(process.env.PORT) || 3000, out: '.last-server', watch: true, help: false };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === '-h' || a === '--help') out.help = true;
