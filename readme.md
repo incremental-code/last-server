@@ -41,9 +41,11 @@ JSX is transformed with `createElement` from last-act as the factory. Fragments 
 ```
 last-server <srcDir> [options]
 
-  --port <n>     Port to listen on (default: 3000)
-  --out <dir>    Compile output directory (default: .last-server)
-  --no-watch     Disable file watching
+  --port <n>          Port to listen on (default: 3000)
+  --out <dir>         Compile output directory (default: .last-server)
+  --uploads-dir <dir> Serve uploaded files from this directory
+  --uploads-path <p>  URL prefix for served uploads (default: /uploads)
+  --no-watch          Disable file watching
 ```
 
 Add `.last-server/` to your `.gitignore`.
@@ -66,3 +68,21 @@ await startServer({
 - Module-level changes to server-rendered files require a server restart (Node caches `import()` results).
 - For routes, see the [last-router readme](../last-router/readme.md) — folder names map to URL segments, `[name]` becomes `:name`.
 - `last-server` exposes a built-in `GET /health` endpoint that returns `200 OK` with body `ok`.
+
+## Uploads
+
+Point `last-server` at a directory to serve uploaded files as static assets:
+
+```
+last-server src --uploads-dir ./uploads
+```
+
+Or via environment:
+
+```
+LAST_UPLOADS_DIR=./uploads last-server src
+```
+
+Files in the directory are served under `/uploads` by default; override the URL
+prefix with `--uploads-path` or `LAST_UPLOADS_PATH`. Pair this with a last-router
+`api.js` upload handler that reads `req.files` and writes into the same directory.

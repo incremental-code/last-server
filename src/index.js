@@ -33,15 +33,15 @@ export async function runCli(argv) {
         process.exit(1);
     }
 
-    await startServer({ srcDir, outDir, port: args.port, watch: args.watch });
+    await startServer({ srcDir, outDir, port: args.port, watch: args.watch, staticDirs: buildStaticDirs(args, process.env) });
 }
 
-export async function startServer({ srcDir, outDir, port = 3000, watch = true } = {}) {
+export async function startServer({ srcDir, outDir, port = 3000, watch = true, staticDirs = [] } = {}) {
     console.log(`last-server: compiling ${srcDir} -> ${outDir}`);
     await compileTree(srcDir, outDir);
 
     const imports = resolveUserImports(process.cwd(), outDir);
-    const server = createServer({ port, base: outDir, imports });
+    const server = createServer({ port, base: outDir, imports, staticDirs });
     const { url } = await server.connect();
     console.log(formatListeningMessage(url));
 
@@ -227,14 +227,23 @@ function startWatch(srcDir, outDir) {
 }
 
 function parseArgs(argv) {
-    const out = { srcDir: null, port: Number(process.env.PORT) || 3000, out: '.last-server', watch: true, help: false };
+    const out = { srcDir: null, port: Number(process.env.PORT) || 3000, out: '.last-server', watch: true, help: false, uploadsDir: null, uploadsPath: '/uploads' };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === '-h' || a === '--help') out.help = true;
         else if (a === '--port') out.port = Number(argv[++i]);
         else if (a === '--out') out.out = argv[++i];
         else if (a === '--no-watch') out.watch = false;
+        else if (a === '--uploads-dir') out.uploadsDir = argv[++i];
+        else if (a === '--uploads-path') out.uploadsPath = argv[++i];
         else if (!out.srcDir && !a.startsWith('-')) out.srcDir = a;
     }
     return out;
+}
+
+function buildStaticDirs(args, env) {
+    const dir = args.uploadsDir || env.LAST_UPLOADS_DIR;
+    if (!dir) return [];
+    const urlPath = args.uploadsPath || env.LAST_UPLOADS_PATH || '/uploads';
+    return [{ path: urlPath, dir }];
 }
